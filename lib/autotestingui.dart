@@ -5,13 +5,13 @@ import 'dart:math';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:path_provider/path_provider.dart';
+import 'package:meta/meta.dart';
 
-/// 🚀 Flutter Inspector SDK (Ultimate Clean Log Edition)
+/// 🚀 AutoTestingUI (Ultimate Clean Log Edition)
 /// 增强功能：修复 ANSI 乱码、多语言支持、实时记录、本地报告
 class FlutterInspector {
-  static final FlutterInspector _instance = FlutterInspector._internal();
-  factory FlutterInspector() => _instance;
-  FlutterInspector._internal();
+  static final NavigatorObserver observer = _InspectorObserver();
+  static FlutterInspector? _currentInstance;
 
   bool _isAutoPilotRunning = false;
   final _random = Random();
@@ -21,41 +21,42 @@ class FlutterInspector {
   final List<int> _clickHistory = []; 
   
   String _currentRoute = "Initial";
-  int _maxClicks = 2; 
-
-  static final NavigatorObserver observer = _InspectorObserver();
+  int _maxClicks = 2;
 
   /// 初始化巡检插件
-  static Future<void> init({
+  Future<void> init({
     bool autoStart = true, 
-    int maxClicks = 2,
   }) async {
+    _currentInstance = this;
     if (!kDebugMode) return; 
     
-    FlutterInspector()._maxClicks = maxClicks;
-    debugPrint("🛡️ [Inspector SDK] ${_I18n.t('init_success')} ${_I18n.t('depth')}: $maxClicks. ${_I18n.t('mode_on')}");
+    debugPrint("🛡️ [AutoTestingUI] ${_I18n.t('init_success')} ${_I18n.t('depth')}: $_maxClicks. ${_I18n.t('mode_on')}");
     
     if (autoStart) {
       Timer(const Duration(seconds: 4), () {
-        FlutterInspector().startAutoPilot();
+        startAutoPilot();
       });
     }
 
     FlutterError.onError = (FlutterErrorDetails details) {
       if (details.exceptionAsString().contains('overflowed')) {
-         final route = FlutterInspector()._currentRoute;
+         final route = _currentRoute;
          final errorMsg = "🚨 [${_I18n.t('overflow')}] ${_I18n.t('route')}: $route, ${_I18n.t('location')}: ${details.library}, ${_I18n.t('detail')}: ${details.exception.toString().split('\n').first}";
          debugPrint("\n$errorMsg");
-         FlutterInspector()._recordError(errorMsg);
+         _recordError(errorMsg);
       }
       FlutterError.presentError(details);
     };
   }
 
+  FlutterInspector({int maxClicks = 2}) {
+    _maxClicks = maxClicks;
+  }
+
   void startAutoPilot() {
     if (_isAutoPilotRunning) return;
     _isAutoPilotRunning = true;
-    debugPrint("🤖 [Inspector SDK] ${_I18n.t('robot_on')} ${_I18n.t('tracking')}: [$_currentRoute]");
+    debugPrint("🤖 [AutoTestingUI] Robot online. Tracking: [$_currentRoute]");
     _robotLoop();
   }
 
@@ -69,21 +70,21 @@ class FlutterInspector {
     while (_isAutoPilotRunning) {
       await Future.delayed(Duration(milliseconds: 1000 + _random.nextInt(800)));
       try {
-        final elementInfo = _findOptimalElement();
+        final elementInfo = findOptimalElement();
         if (elementInfo != null) {
           final element = elementInfo.item1;
           final name = elementInfo.item2;
-          final viewName = _findNearestView(element);
+          final viewName = findNearestView(element);
           
           final entryKey = "$_currentRoute > $name";
           _interactionStats[entryKey] = (_interactionStats[entryKey] ?? 0) + 1;
           _clickHistory.insert(0, element.hashCode);
           if (_clickHistory.length > 5) _clickHistory.removeLast();
 
-          debugPrint("👉 [Robot] ${_I18n.t('auditing')}: [$_currentRoute] | $name | View: $viewName | ${_I18n.t('progress')}: ${_interactionStats[entryKey]}/$_maxClicks");
-          _performTap(element);
+          debugPrint("👉 [Robot] Auditing: [$_currentRoute] | $name | View: $viewName | Progress: ${_interactionStats[entryKey]}/$_maxClicks");
+          performTap(element);
         } else {
-          _checkAndFinish();
+          checkAndFinish();
         }
       } catch (e) {
         // Silent
@@ -92,14 +93,15 @@ class FlutterInspector {
   }
 
   int _noActionCount = 0;
-  void _checkAndFinish() {
+  void checkAndFinish() {
     _noActionCount++;
     if (_noActionCount > 5) {
-       _finishAudit();
+       finishAudit();
     }
   }
 
-  Tuple2<Element, String>? _findOptimalElement() {
+  @protected
+  Tuple2<Element, String>? findOptimalElement() {
     List<Tuple2<Element, String>> candidates = [];
     void visitor(Element element) {
       final widget = element.widget;
@@ -107,7 +109,7 @@ class FlutterInspector {
       if (isInteractable) {
         final RenderObject? renderObject = element.renderObject;
         if (renderObject is RenderBox && renderObject.hasSize && renderObject.size.height > 10) {
-          String name = _extractNameFromElement(element);
+          String name = extractNameFromElement(element);
           final entryKey = "$_currentRoute > $name";
           int clickCount = _interactionStats[entryKey] ?? 0;
           if (clickCount < _maxClicks && !_clickHistory.contains(element.hashCode)) {
@@ -124,7 +126,8 @@ class FlutterInspector {
     return candidates.first;
   }
 
-  String _findNearestView(Element element) {
+  @protected
+  String findNearestView(Element element) {
     String found = "UnknownView";
     element.visitAncestorElements((ancestor) {
       final type = ancestor.widget.runtimeType.toString();
@@ -137,7 +140,8 @@ class FlutterInspector {
     return found;
   }
 
-  String _extractNameFromElement(Element element) {
+  @protected
+  String extractNameFromElement(Element element) {
     String foundName = "";
     void textVisitor(Element el) {
       if (foundName.isNotEmpty) return;
@@ -152,7 +156,8 @@ class FlutterInspector {
     return foundName.isEmpty ? "Widget_${element.widget.runtimeType}" : foundName;
   }
 
-  void _performTap(Element element) {
+  @protected
+  void performTap(Element element) {
     final widget = element.widget;
     if (widget is InkWell) widget.onTap?.call();
     else if (widget is GestureDetector) widget.onTap?.call();
@@ -161,12 +166,13 @@ class FlutterInspector {
     else if (widget is IconButton) widget.onPressed?.call();
   }
 
-  Future<void> _finishAudit() async {
+  @protected
+  Future<void> finishAudit() async {
     if (!_isAutoPilotRunning) return;
     _isAutoPilotRunning = false;
     
     final reportTitle = "======= 🏆 ${_I18n.t('audit_done')} 🏆 =======";
-    final reportContent = _generateReportString();
+    final reportContent = generateReportString();
     
     debugPrint("\n$reportTitle");
     debugPrint(reportContent);
@@ -183,7 +189,8 @@ class FlutterInspector {
     }
   }
 
-  String _generateReportString() {
+  @protected
+  String generateReportString() {
     StringBuffer report = StringBuffer();
     report.writeln("${_I18n.t('time')}: ${DateTime.now()}");
     report.writeln("${_I18n.t('depth')}: $_maxClicks");
@@ -217,7 +224,7 @@ class FlutterInspector {
   void _updateRoute(String? name) {
     if (name != null && name != _currentRoute) {
       _currentRoute = name;
-      debugPrint("📍 [Inspector SDK] ${_I18n.t('route_change')}: $_currentRoute");
+      debugPrint("📍 [AutoTestingUI] ${_I18n.t('route_change')}: $_currentRoute");
     }
   }
 }
@@ -225,11 +232,11 @@ class FlutterInspector {
 class _InspectorObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    FlutterInspector()._updateRoute(route.settings.name);
+    FlutterInspector._currentInstance?._updateRoute(route.settings.name);
   }
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    FlutterInspector()._updateRoute(previousRoute?.settings.name);
+    FlutterInspector._currentInstance?._updateRoute(previousRoute?.settings.name);
   }
 }
 

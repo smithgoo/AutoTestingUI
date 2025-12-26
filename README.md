@@ -1,4 +1,4 @@
-# Flutter Inspector SDK 🚀
+# AutoTestingUI 🚀
 
 A universal automation and UI overflow detection tool for Flutter. This SDK is designed to be a "plug-and-play" auditor for your Flutter projects, providing automated UI navigation, crash detection, and detailed reporting.
 
@@ -13,34 +13,61 @@ A universal automation and UI overflow detection tool for Flutter. This SDK is d
 ## Integration Guide 🛠️
 
 ### 1. Structure
-Copy the `flutter_inspector_sdk` package to your project's `packages/` directory (or host it on a private Git repo).
+Copy the `autotestingui` package to your project's `packages/` directory (or host it on a private Git repo).
 
 ### 2. Dependency
 Add it to your `pubspec.yaml`:
 ```yaml
 dependencies:
-  flutter_inspector_sdk:
-    path: packages/flutter_inspector_sdk
-    # Or from GitHub:
-    # git:
-    #   url: https://github.com/yourname/flutter_inspector_sdk.git
+  autotestingui:
+    git:
+      url: https://github.com/yourusername/AutoTestingUI.git
+      ref: main
 ```
 
 ### 3. Usage
 Initialize it in your `main.dart` entry point:
 ```dart
-import 'package:flutter_inspector_sdk/flutter_inspector_sdk.dart';
+import 'package:autotestingui/autotestingui.dart';
 
 void main() async {
-  // Initialize the inspector (Internal check ensures it only runs in Debug mode)
-  await FlutterInspector.init();
+  // Create an instance of the inspector
+  final inspector = FlutterInspector(maxClicks: 3);
+  await inspector.init();
   
   runApp(MyApp());
 }
 ```
 
+### 4. Inheritance (Advanced)
+You can extend the `FlutterInspector` class to customize its behavior:
+```dart
+class CustomInspector extends FlutterInspector {
+  CustomInspector({super.maxClicks = 5});
+
+  @override
+  void performTap(Element element) {
+    // Custom tap logic
+    super.performTap(element);
+    // Add additional actions
+  }
+
+  @override
+  String extractNameFromElement(Element element) {
+    // Custom naming logic
+    return super.extractNameFromElement(element) + '_custom';
+  }
+}
+```
+
+Then use it:
+```dart
+final inspector = CustomInspector();
+await inspector.init();
+```
+
 ## How it Works ⚙️
-1. **Wake up**: 5 seconds after the app starts, the Robot awakens.
+1. **Wake up**: 4 seconds after the app starts, the Robot awakens.
 2. **Scan**: It identifies interactable elements (InkWell, Buttons, etc.) and analyzes their semantics.
 3. **Act**: It simulates taps on features it hasn't tested enough (threshold: 2).
 4. **Report**: Once all reachable features are audited, it generates a comprehensive report on the device.

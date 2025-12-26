@@ -1,6 +1,8 @@
-name: flutter_inspector_sdk
+name: autotestingui
 description: A universal automation and UI overflow detection tool for Flutter.
 version: 0.0.1
+homepage: https://github.com/yourusername/AutoTestingUI
+repository: https://github.com/yourusername/AutoTestingUI
 publish_to: none
 
 environment:
