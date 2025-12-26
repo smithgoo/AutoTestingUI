@@ -21,8 +21,8 @@ Add it to your `pubspec.yaml`:
 dependencies:
   autotestingui:
     git:
-      url: https://github.com/yourusername/AutoTestingUI.git
-      ref: main
+      url: https://github.com/smithgoo/AutoTestingUI.git
+      ref: master
 ```
 
 ### 3. Usage
