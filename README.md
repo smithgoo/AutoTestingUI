@@ -5,6 +5,12 @@
 ---
 
 ## ⚡ 1. 一行命令集成
+pub集成
+autotestingui:
+    git:
+      url: https://github.com/smithgoo/AutoTestingUI.git
+      ref: master
+
 
 在应用入口 `main.dart` 中，只需一行初始化代码即可激活防御系统。
 
