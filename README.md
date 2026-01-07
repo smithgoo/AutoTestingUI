@@ -6,7 +6,8 @@
 
 ## ⚡ 1. 一行命令集成
 pub集成
-```autotestingui:
+```
+autotestingui:
     git:
       url: https://github.com/smithgoo/AutoTestingUI.git
       ref: master
