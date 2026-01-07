@@ -113,13 +113,12 @@ class FlutterInspector {
       final route = instance._currentRoute;
       final exceptionStr = details.exceptionAsString();
       final stackTrace = details.stack?.toString() ?? 'No stack trace available';
-      final contextStr = details.context?.toString() ?? 'No context';
       
       String errorType = 'Error';
       String emoji = '🚨';
       
       // Categorize error type
-      if (exceptionStr.contains('overflowed') || exceptionStr.contains('RenderFlex') || exceptionStr.contains('RenderBox')) {
+      if (exceptionStr.contains('overflowed')) {
         errorType = _I18n.t('overflow');
         emoji = '📐';
       } else if (exceptionStr.contains('[Get]') || exceptionStr.contains('GetX') || exceptionStr.contains('Obx')) {
@@ -137,7 +136,6 @@ Time: $timestamp
 Device: ${instance._deviceInfo}
 Route: $route
 Library: ${details.library}
-Context: $contextStr
 $separator
 
 EXCEPTION:
@@ -150,41 +148,14 @@ $separator
 ''';
       
       // Log summary to console
-      final firstLine = exceptionStr.split('\n').first;
+      final firstLine = details.exception.toString().split('\n').first;
       final errorMsg = "$emoji [$errorType] Device: ${instance._deviceInfo} | Route: $route | Detail: $firstLine";
       _universalLog(errorMsg, name: '$emoji ALARM', level: 2000);
       
-      // Save detailed error to file (using exceptionStr for deduplication)
-      instance._recordError(detailedError, signature: "$errorType: $exceptionStr on $route");
+      // Save detailed error to file
+      instance._recordError(detailedError);
       
       FlutterError.presentError(details);
-    };
-
-    // 3.1 Catch Asynchronous Errors (Platform Level)
-    ui.PlatformDispatcher.instance.onError = (error, stack) {
-      final route = instance._currentRoute;
-      final errorStr = error.toString();
-      
-      _universalLog("🌐 [Async Error] $errorStr", name: '🌐 ALARM', level: 2000);
-      
-      final detailedError = '''
-================================================================================
-🌐 [Async Error] ERROR DETECTED
-Time: ${DateTime.now().toIso8601String()}
-Device: ${instance._deviceInfo}
-Route: $route
-================================================================================
-
-EXCEPTION:
-$errorStr
-
-STACK TRACE:
-$stack
-
-================================================================================
-''';
-      instance._recordError(detailedError, signature: "Async: $errorStr on $route");
-      return false; // Return false to let the error propagate if needed
     };
 
     // 4. Mode-Based Saving Strategy
@@ -239,30 +210,7 @@ $stack
     report.writeln("${_I18n.t('device_details')}: $_deviceInfo");
     report.writeln("${_I18n.t('depth')}: $_maxClicks");
 
-    // Section 1: Statistics Summary
-    final interactionPoints = _interactionStats.keys.toList();
-    final coveredPoints = _interactionStats.values.where((v) => v >= _maxClicks).length;
-    final totalPaths = interactionPoints.length;
-    final completionRate = totalPaths > 0 ? (coveredPoints / totalPaths * 100).toStringAsFixed(1) : "0";
-    final uniqueRoutes = interactionPoints.map((k) => k.split(' > ').first).toSet().length;
-
-    report.writeln("\n[${_I18n.t('stat_title')}]");
-    report.writeln("${_I18n.t('total_paths')}: $totalPaths");
-    report.writeln("${_I18n.t('covered_paths')}: $coveredPoints");
-    report.writeln("${_I18n.t('completion')}: $completionRate%");
-    report.writeln("${_I18n.t('routes_visited')}: $uniqueRoutes");
-
-    // Section 2: Detailed Path Records
-    report.writeln("\n[${_I18n.t('path_details')}]");
-    if (interactionPoints.isEmpty) {
-      report.writeln("✨ ${_I18n.t('no_action')}");
-    } else {
-      for (var key in interactionPoints) {
-        final count = _interactionStats[key]!;
-        final status = count >= _maxClicks ? "✅ ${_I18n.t('covered')}" : "⏳ ${_I18n.t('incomplete')}";
-        report.writeln("- $key: $count (${_I18n.t('status')}: $status)");
-      }
-    }
+    // stats (Section 1) and path details (Section 2) are removed as requested
     
     report.writeln("\n[${_I18n.t('error_title')}]");
     if (_errorLog.isEmpty) {
@@ -282,31 +230,30 @@ $stack
       String model = "Unknown Device";
       String os = Platform.operatingSystem;
       String version = Platform.operatingSystemVersion;
-      String screenSize = "Unknown";
       
-      try {
-        final view = ui.PlatformDispatcher.instance.views.first;
-        final size = view.physicalSize / view.devicePixelRatio;
-        screenSize = "${size.width.toInt()}x${size.height.toInt()}";
-      } catch (_) {}
-
       if (Platform.isIOS) {
         final iosInfo = await deviceInfoPlugin.iosInfo;
-        model = iosInfo.name;
-        final deviceModel = iosInfo.utsname.machine;
+        // Get device name like "iPhone 16e", "iPad Air" etc.
+        model = iosInfo.name; // This gives us "Alex's iPhone" or similar
+        final deviceModel = iosInfo.utsname.machine; // This gives us "iPhone16,5" etc.
         
+        // If name is personalized (contains apostrophe or common names), use model instead
         if (model.contains("'") || model.toLowerCase().contains('iphone') == false && model.toLowerCase().contains('ipad') == false) {
           model = _parseIOSModel(deviceModel);
+        }
+        
+        if (kDebugMode) {
+          _universalLog('Device: name="${iosInfo.name}", model="${deviceModel}", systemName="${iosInfo.systemName}", systemVersion="${iosInfo.systemVersion}"', name: '🔍 DeviceInfo');
         }
         
         version = "${iosInfo.systemName} ${iosInfo.systemVersion}";
       } else if (Platform.isAndroid) {
         final androidInfo = await deviceInfoPlugin.androidInfo;
         model = "${androidInfo.manufacturer} ${androidInfo.model}";
-        version = "Android ${androidInfo.version.release} (SDK ${androidInfo.version.sdkInt})";
+        version = "Android ${androidInfo.version.release}";
       }
 
-      return "$model ($os $version, $screenSize)";
+      return "$model ($version)";
     } catch (e) {
       _universalLog('Error fetching device info: $e', name: '⚠️ DeviceInfo');
       return "Unknown Device (${Platform.operatingSystem})";
@@ -363,12 +310,8 @@ $stack
     _robotLoop();
   }
 
-  final Set<String> _recordedSignatures = {};
-
-  void _recordError(String msg, {String? signature}) {
-    final effectiveSignature = signature ?? msg;
-    if (!_recordedSignatures.contains(effectiveSignature)) {
-      _recordedSignatures.add(effectiveSignature);
+  void _recordError(String msg) {
+    if (!_errorLog.contains(msg)) {
       final timestamp = DateTime.now().toIso8601String();
       final logEntry = "[$timestamp] $msg";
       _errorLog.add(logEntry);
@@ -618,7 +561,6 @@ class _I18n {
       'status': 'Status',
       'covered': 'Covered',
       'incomplete': 'Incomplete',
-      'routes_visited': 'Unique Routes Visited',
       'error_title': 'UI Exceptions (Snapshot)',
       'perfect': 'Perfect! No overflow or crash detected in this session.',
       'robot_on': 'Robot online.',
@@ -648,7 +590,6 @@ class _I18n {
       'status': '状态',
       'covered': '已覆盖',
       'incomplete': '未完成',
-      'routes_visited': '已访问路由数',
       'error_title': 'UI 异常记录 (快照)',
       'perfect': '完美！本次会话未检测到越界或崩溃。',
       'robot_on': '巡航机器人上线。',
