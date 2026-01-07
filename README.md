@@ -78,3 +78,52 @@ SDK 提供了三个标准静态接口，方便随时提取数据上传后端：
 系统启动后请观察控制台：
 `🛡️ [Inspector SDK] Sentinel Active. Storage: /.../Documents | Device: ...`
 点击路径即可查看生成的 `inspector_report.txt`。
+
+## 示例log
+```
+Restarted application in 1,451ms.
+flutter: [20:53:02] [🔍 DeviceInfo] Device: name="iPhone 16e", model="iPhone17,5", systemName="iOS", systemVersion="26.0"
+flutter: [20:53:02] [🛡️ Inspector] 巡检系统已激活. Storage: /Users/james/Library/Developer/CoreSimulator/Devices/8CDAA5D1-22B8-40C4-BE92-FB95B7439DDC/data/Containers/Data/Application/FE692021-FF5B-4612-8913-D9CFCAE95883/Documents | Device: iPhone 16e (iOS 26.0)
+flutter: [20:53:02] [📄 File] 💾 [快照] 系统状态已同步: /Users/james/Library/Developer/CoreSimulator/Devices/8CDAA5D1-22B8-40C4-BE92-FB95B7439DDC/data/Containers/Data/Application/FE692021-FF5B-4612-8913-D9CFCAE95883/Documents/inspector_report.txt
+flutter: [20:53:02] [🤖 Inspector] 💡 巡航机器人上线。 - Reporting will be generated at the end.
+flutter: Calendar permissions denied
+flutter: [20:53:06] [🤖 Inspector] 巡航机器人上线。 Mode: Auditing.
+flutter: [20:53:08] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E0B7) | View: SingleChildScrollView | 进度: 1/1
+flutter: [20:53:09] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E154) | View: SingleChildScrollView | 进度: 1/1
+flutter: [20:53:10] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E15D) | View: SingleChildScrollView | 进度: 1/1
+flutter: [20:53:12] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E491) | View: SingleChildScrollView | 进度: 1/1
+flutter: [20:53:13] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E03C) | View: CustomizationView | 进度: 1/1
+flutter: [20:53:15] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E514) | View: OutfitView | 进度: 1/1
+flutter: [20:53:16] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E252) | View: CustomizationView | 进度: 1/1
+flutter: [20:53:18] [👉 Robot] 👉 正在审计: [Initial] | 椭圆 | View: GridView | 进度: 1/1
+flutter: [20:53:19] [👉 Robot] 👉 正在审计: [Initial] | 圆脸 | View: GridView | 进度: 1/1
+flutter: [20:53:21] [👉 Robot] 👉 正在审计: [Initial] | 方脸 | View: GridView | 进度: 1/1
+flutter: [20:53:22] [👉 Robot] 👉 正在审计: [Initial] | 心形 | View: GridView | 进度: 1/1
+flutter: [20:53:23] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E6C5) | View: CustomizationView | 进度: 1/1
+flutter: [20:53:25] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0F570) | View: ChatView | 进度: 1/1
+flutter: [20:53:26] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E3C8) | View: SingleChildScrollView | 进度: 1/1
+flutter: [20:53:27] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E59A) | View: SingleChildScrollView | 进度: 1/1
+flutter: [20:53:37] [🤖 Dialog] 🔄 Auto-dismissed error dialog
+flutter: [20:53:39] [👉 Robot] 👉 正在审计: [Initial] | 灵石购买 | View: ShopView | 进度: 1/1
+flutter: [20:53:40] [👉 Robot] 👉 正在审计: [Initial] | 订阅服务 | View: ShopView | 进度: 1/1
+flutter: [20:53:41] [👉 Robot] 👉 正在审计: [Initial] | $9.99/month | View: ListView | 进度: 1/1
+flutter: [20:53:43] [🤖 Dialog] 🔄 Auto-dismissed error dialog
+flutter: [20:53:45] [👉 Robot] 👉 正在审计: [Initial] | $24.99/3 months | View: ListView | 进度: 1/1
+flutter: [20:53:46] [🤖 Dialog] 🔄 Auto-dismissed error dialog
+flutter: [20:53:48] [👉 Robot] 👉 正在审计: [Initial] | $79.99/year | View: ListView | 进度: 1/1
+flutter: [20:53:49] [🤖 Dialog] 🔄 Auto-dismissed error dialog
+flutter: [20:53:51] [👉 Robot] 👉 正在审计: [Initial] | Icon_IconData(U+0E534) | View: ShopView | 进度: 1/1
+flutter: [20:53:53] [👉 Robot] 👉 正在审计: [Initial] | Restore Complete | View: _MediaQueryFromView | 进度: 1/1
+flutter: [20:54:06] [📄 File] 💾 [快照] 系统状态已同步: /Users/james/Library/Developer/CoreSimulator/Devices/8CDAA5D1-22B8-40C4-BE92-FB95B7439DDC/data/Containers/Data/Application/FE692021-FF5B-4612-8913-D9CFCAE95883/Documents/inspector_report.txt
+flutter: [20:54:06] [📋 Report] 📋 巡检任务已完成.
+
+点击链接可以看到模拟器写入的数据
+ 
+时间: 2026-01-07 20:54:06.257633
+设备详情: iPhone 16e (iOS 26.0)
+审计深度: 1
+
+[UI 异常记录 (快照)]
+✨ 完美！本次会话未检测到越界或崩溃。
+
+```
