@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'dart:developer' as dev;
 import 'package:path_provider/path_provider.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 /// 🛡️ FlutterInspector (Dual-Mode: Monitoring & Automation)
 /// 
@@ -107,15 +108,83 @@ class FlutterInspector {
     instance._isDataDirty = true; 
     await instance._saveSnapshotReport();
 
-    // 3. Global Exception Listener
+    // 3. Global Exception Listener - Enhanced to capture ALL errors with FULL details
     FlutterError.onError = (FlutterErrorDetails details) {
-      if (details.exceptionAsString().contains('overflowed')) {
-         final route = instance._currentRoute;
-         final errorMsg = "🚨 [${_I18n.t('overflow')}] Device: ${instance._deviceInfo} | Route: $route | Location: ${details.library} | Detail: ${details.exception.toString().split('\n').first}";
-         _universalLog(errorMsg, name: '🚨 ALARM', level: 2000);
-         instance._recordError(errorMsg);
+      final route = instance._currentRoute;
+      final exceptionStr = details.exceptionAsString();
+      final stackTrace = details.stack?.toString() ?? 'No stack trace available';
+      final contextStr = details.context?.toString() ?? 'No context';
+      
+      String errorType = 'Error';
+      String emoji = '🚨';
+      
+      // Categorize error type
+      if (exceptionStr.contains('overflowed') || exceptionStr.contains('RenderFlex') || exceptionStr.contains('RenderBox')) {
+        errorType = _I18n.t('overflow');
+        emoji = '📐';
+      } else if (exceptionStr.contains('[Get]') || exceptionStr.contains('GetX') || exceptionStr.contains('Obx')) {
+        errorType = 'GetX Error';
+        emoji = '⚡';
       }
+      
+      // Create detailed error report
+      final timestamp = DateTime.now().toIso8601String();
+      final separator = '=' * 80;
+      final detailedError = '''
+$separator
+$emoji [$errorType] ERROR DETECTED
+Time: $timestamp
+Device: ${instance._deviceInfo}
+Route: $route
+Library: ${details.library}
+Context: $contextStr
+$separator
+
+EXCEPTION:
+$exceptionStr
+
+STACK TRACE:
+$stackTrace
+
+$separator
+''';
+      
+      // Log summary to console
+      final firstLine = exceptionStr.split('\n').first;
+      final errorMsg = "$emoji [$errorType] Device: ${instance._deviceInfo} | Route: $route | Detail: $firstLine";
+      _universalLog(errorMsg, name: '$emoji ALARM', level: 2000);
+      
+      // Save detailed error to file (using exceptionStr for deduplication)
+      instance._recordError(detailedError, signature: "$errorType: $exceptionStr on $route");
+      
       FlutterError.presentError(details);
+    };
+
+    // 3.1 Catch Asynchronous Errors (Platform Level)
+    ui.PlatformDispatcher.instance.onError = (error, stack) {
+      final route = instance._currentRoute;
+      final errorStr = error.toString();
+      
+      _universalLog("🌐 [Async Error] $errorStr", name: '🌐 ALARM', level: 2000);
+      
+      final detailedError = '''
+================================================================================
+🌐 [Async Error] ERROR DETECTED
+Time: ${DateTime.now().toIso8601String()}
+Device: ${instance._deviceInfo}
+Route: $route
+================================================================================
+
+EXCEPTION:
+$errorStr
+
+STACK TRACE:
+$stack
+
+================================================================================
+''';
+      instance._recordError(detailedError, signature: "Async: $errorStr on $route");
+      return false; // Return false to let the error propagate if needed
     };
 
     // 4. Mode-Based Saving Strategy
@@ -169,26 +238,33 @@ class FlutterInspector {
     report.writeln("${_I18n.t('time')}: ${DateTime.now()}");
     report.writeln("${_I18n.t('device_details')}: $_deviceInfo");
     report.writeln("${_I18n.t('depth')}: $_maxClicks");
-    
-    final totalPaths = _interactionStats.length;
-    final fullyCovered = _interactionStats.values.where((v) => v >= _maxClicks).length;
 
-    report.writeln("\n[1. ${_I18n.t('stat_title')}]");
+    // Section 1: Statistics Summary
+    final interactionPoints = _interactionStats.keys.toList();
+    final coveredPoints = _interactionStats.values.where((v) => v >= _maxClicks).length;
+    final totalPaths = interactionPoints.length;
+    final completionRate = totalPaths > 0 ? (coveredPoints / totalPaths * 100).toStringAsFixed(1) : "0";
+    final uniqueRoutes = interactionPoints.map((k) => k.split(' > ').first).toSet().length;
+
+    report.writeln("\n[${_I18n.t('stat_title')}]");
     report.writeln("${_I18n.t('total_paths')}: $totalPaths");
-    report.writeln("${_I18n.t('covered_paths')}: $fullyCovered");
-    report.writeln("${_I18n.t('completion')}: ${(totalPaths > 0 ? (fullyCovered / totalPaths * 100) : 0).toStringAsFixed(1)}%");
+    report.writeln("${_I18n.t('covered_paths')}: $coveredPoints");
+    report.writeln("${_I18n.t('completion')}: $completionRate%");
+    report.writeln("${_I18n.t('routes_visited')}: $uniqueRoutes");
 
-    report.writeln("\n[2. ${_I18n.t('path_details')}]");
-    if (_interactionStats.isEmpty) {
-      report.writeln("- ${_I18n.t('no_action')}");
+    // Section 2: Detailed Path Records
+    report.writeln("\n[${_I18n.t('path_details')}]");
+    if (interactionPoints.isEmpty) {
+      report.writeln("✨ ${_I18n.t('no_action')}");
     } else {
-      _interactionStats.forEach((key, value) {
-        final status = value >= _maxClicks ? "✅ ${_I18n.t('covered')}" : "⏳ ${_I18n.t('incomplete')}";
-        report.writeln("- ${_I18n.t('path')}: $key | ${_I18n.t('count')}: $value/$_maxClicks | ${_I18n.t('status')}: $status");
-      });
+      for (var key in interactionPoints) {
+        final count = _interactionStats[key]!;
+        final status = count >= _maxClicks ? "✅ ${_I18n.t('covered')}" : "⏳ ${_I18n.t('incomplete')}";
+        report.writeln("- $key: $count (${_I18n.t('status')}: $status)");
+      }
     }
     
-    report.writeln("\n[3. ${_I18n.t('error_title')}]");
+    report.writeln("\n[${_I18n.t('error_title')}]");
     if (_errorLog.isEmpty) {
       report.writeln("✨ ${_I18n.t('perfect')}");
     } else {
@@ -202,24 +278,82 @@ class FlutterInspector {
 
   Future<String> _fetchDeviceInfo() async {
     try {
+      final deviceInfoPlugin = DeviceInfoPlugin();
       String model = "Unknown Device";
       String os = Platform.operatingSystem;
       String version = Platform.operatingSystemVersion;
+      String screenSize = "Unknown";
       
-      // Heuristically find model name in env
-      final envModel = Platform.environment['SIMULATOR_MODEL_IDENTIFIER'] ?? 
-                      Platform.environment['DEVICE_NAME'];
-      
-      if (envModel != null && envModel.isNotEmpty) {
-        model = envModel;
-      } else if (Platform.isIOS || Platform.isAndroid) {
-          model = Platform.isIOS ? "iOS Device" : "Android Device";
+      try {
+        final view = ui.PlatformDispatcher.instance.views.first;
+        final size = view.physicalSize / view.devicePixelRatio;
+        screenSize = "${size.width.toInt()}x${size.height.toInt()}";
+      } catch (_) {}
+
+      if (Platform.isIOS) {
+        final iosInfo = await deviceInfoPlugin.iosInfo;
+        model = iosInfo.name;
+        final deviceModel = iosInfo.utsname.machine;
+        
+        if (model.contains("'") || model.toLowerCase().contains('iphone') == false && model.toLowerCase().contains('ipad') == false) {
+          model = _parseIOSModel(deviceModel);
+        }
+        
+        version = "${iosInfo.systemName} ${iosInfo.systemVersion}";
+      } else if (Platform.isAndroid) {
+        final androidInfo = await deviceInfoPlugin.androidInfo;
+        model = "${androidInfo.manufacturer} ${androidInfo.model}";
+        version = "Android ${androidInfo.version.release} (SDK ${androidInfo.version.sdkInt})";
       }
 
-      return "$model ($os $version)";
+      return "$model ($os $version, $screenSize)";
     } catch (e) {
-      return "Generic Device (${Platform.operatingSystem})";
+      _universalLog('Error fetching device info: $e', name: '⚠️ DeviceInfo');
+      return "Unknown Device (${Platform.operatingSystem})";
     }
+  }
+  
+  String _parseIOSModel(String model) {
+    // Map common iOS device identifiers to readable names
+    // Reference: https://www.theiphonewiki.com/wiki/Models
+    final Map<String, String> modelMap = {
+      // iPhone 16 series
+      'iPhone17,3': 'iPhone 16 Pro',
+      'iPhone17,4': 'iPhone 16 Pro Max',
+      'iPhone17,1': 'iPhone 16',
+      'iPhone17,2': 'iPhone 16 Plus',
+      
+      // iPhone 15 series  
+      'iPhone16,2': 'iPhone 15 Pro Max',
+      'iPhone16,1': 'iPhone 15 Pro',
+      'iPhone15,5': 'iPhone 15 Plus',
+      'iPhone15,4': 'iPhone 15',
+      
+      // iPad Pro
+      'iPad14,6': 'iPad Pro 12.9-inch (6th gen)',
+      'iPad14,5': 'iPad Pro 11-inch (4th gen)',
+      
+      // iPad Air
+      'iPad14,9': 'iPad Air (6th gen)',
+      'iPad13,17': 'iPad Air (5th gen)',
+    };
+    
+    // Try exact match first
+    if (modelMap.containsKey(model)) {
+      return modelMap[model]!;
+    }
+    
+    // Fallback: clean up the identifier
+    if (model.contains(',')) {
+      final parts = model.split(',');
+      if (parts[0].contains('iPhone')) {
+        return 'iPhone ${parts[0].replaceAll('iPhone', '')}';
+      } else if (parts[0].contains('iPad')) {
+        return 'iPad ${parts[0].replaceAll('iPad', '')}';
+      }
+    }
+    
+    return model;
   }
 
   void startAutoPilot() {
@@ -229,8 +363,12 @@ class FlutterInspector {
     _robotLoop();
   }
 
-  void _recordError(String msg) {
-    if (!_errorLog.contains(msg)) {
+  final Set<String> _recordedSignatures = {};
+
+  void _recordError(String msg, {String? signature}) {
+    final effectiveSignature = signature ?? msg;
+    if (!_recordedSignatures.contains(effectiveSignature)) {
+      _recordedSignatures.add(effectiveSignature);
       final timestamp = DateTime.now().toIso8601String();
       final logEntry = "[$timestamp] $msg";
       _errorLog.add(logEntry);
@@ -253,6 +391,14 @@ class FlutterInspector {
     while (_isAutoPilotRunning) {
       await Future.delayed(Duration(milliseconds: 1000 + _random.nextInt(800)));
       try {
+        // Auto-dismiss any error dialogs before proceeding
+        final dialogDismissed = _findAndDismissErrorDialog();
+        if (dialogDismissed) {
+          _universalLog("🔄 Auto-dismissed error dialog", name: '🤖 Dialog');
+          await Future.delayed(const Duration(milliseconds: 500));
+          continue;
+        }
+        
         final elementInfo = _findOptimalElement();
         if (elementInfo != null) {
           final element = elementInfo.item1;
@@ -358,6 +504,71 @@ class FlutterInspector {
     _universalLog("📋 ${_I18n.t('audit_done')}.", name: '📋 Report', level: 800);
   }
 
+  bool _findAndDismissErrorDialog() {
+    bool foundAndDismissed = false;
+    Element? buttonToDismiss;
+    
+    void dialogVisitor(Element element) {
+      if (foundAndDismissed) return;
+      
+      final widget = element.widget;
+      final widgetType = widget.runtimeType.toString();
+      
+      // Detect error dialogs or alert dialogs
+      if (widgetType.contains('ErrorWidget') || 
+          widgetType.contains('AlertDialog') ||
+          widgetType.contains('Dialog')) {
+        
+        // Look for dismiss buttons within the dialog
+        void buttonVisitor(Element el) {
+          if (foundAndDismissed) return;
+          
+          final w = el.widget;
+          bool isButton = w is TextButton || w is ElevatedButton || w is IconButton || w is GestureDetector || w is InkWell;
+          
+          if (isButton) {
+            // Check if button has text indicating it's a close button
+            String buttonText = '';
+            void textFinder(Element textEl) {
+              if (textEl.widget is Text) {
+                buttonText = (textEl.widget as Text).data?.toLowerCase() ?? '';
+              }
+              textEl.visitChildren(textFinder);
+            }
+            el.visitChildren(textFinder);
+            
+            // Common close button texts
+            final closeTexts = ['ok', 'close', 'dismiss', 'cancel', '确定', '关闭', '取消'];
+            if (closeTexts.any((text) => buttonText.contains(text)) || buttonText.isEmpty) {
+              buttonToDismiss = el;
+              foundAndDismissed = true;
+              return;
+            }
+          }
+          
+          el.visitChildren(buttonVisitor);
+        }
+        
+        element.visitChildren(buttonVisitor);
+      }
+      
+      element.visitChildren(dialogVisitor);
+    }
+    
+    try {
+      WidgetsBinding.instance.rootElement?.visitChildren(dialogVisitor);
+      
+      if (buttonToDismiss != null) {
+        _performTap(buttonToDismiss!);
+        return true;
+      }
+    } catch (e) {
+      // Silent error during dialog detection
+    }
+    
+    return false;
+  }
+
   void _updateRoute(String? name) {
     if (name != null && name != _currentRoute) {
       _currentRoute = name;
@@ -407,6 +618,7 @@ class _I18n {
       'status': 'Status',
       'covered': 'Covered',
       'incomplete': 'Incomplete',
+      'routes_visited': 'Unique Routes Visited',
       'error_title': 'UI Exceptions (Snapshot)',
       'perfect': 'Perfect! No overflow or crash detected in this session.',
       'robot_on': 'Robot online.',
@@ -436,6 +648,7 @@ class _I18n {
       'status': '状态',
       'covered': '已覆盖',
       'incomplete': '未完成',
+      'routes_visited': '已访问路由数',
       'error_title': 'UI 异常记录 (快照)',
       'perfect': '完美！本次会话未检测到越界或崩溃。',
       'robot_on': '巡航机器人上线。',
