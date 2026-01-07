@@ -16,6 +16,8 @@ autotestingui:
 在应用入口 `main.dart` 中，只需一行初始化代码即可激活防御系统。
 
 ```dart
+import 'package:autotestingui/autotestingui.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -118,7 +120,7 @@ flutter: [20:54:06] [📄 File] 💾 [快照] 系统状态已同步: /Users/jame
 flutter: [20:54:06] [📋 Report] 📋 巡检任务已完成.
 
 点击链接可以看到模拟器写入的数据
- 
+
 时间: 2026-01-07 20:54:06.257633
 设备详情: iPhone 16e (iOS 26.0)
 审计深度: 1
